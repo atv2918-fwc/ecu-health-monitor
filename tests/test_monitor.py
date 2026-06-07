@@ -104,7 +104,7 @@ def test_ecu_recover_resets_state(eps):
 
 def test_eps_fault_triggers_critical_alerts():
     """
-    Simulates the Mercedes-Benz steering pull issue —
+    Simulates the Automotive steering pull issue —
     SteeringTorque stuck high, motor overworking, voltage dropping.
     Expects CRITICAL alerts to fire.
     """
@@ -141,7 +141,7 @@ def test_eps_fault_triggers_critical_alerts():
 
 def test_eps_fault_triggers_critical_alerts():
     """
-    Simulates the Mercedes-Benz steering pull issue —
+    Simulates the Automotive steering pull issue —
     SteeringTorque stuck high, motor overworking, voltage dropping.
     CRITICAL: SteeringTorque, MotorCurrent
     WARNING:  SupplyVoltage
@@ -181,7 +181,7 @@ def test_eps_fault_triggers_critical_alerts():
 
 def test_bcm_trunk_warning_fault():
     """
-    Simulates the Mercedes-Benz trunk sound warning issue —
+    Simulates the Automotive trunk sound warning issue —
     trunk sensor stuck open, spurious sound warning, CAN bus errors.
     Expects CRITICAL alerts on all 3 signals.
     """

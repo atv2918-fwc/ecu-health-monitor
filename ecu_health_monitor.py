@@ -5,7 +5,7 @@ Continuously polls a set of ECUs over simulated UDS/CAN, tracks live
 signal health, detects anomalies, logs faults, and raises alerts.
 
 Models the kind of End-of-Line (EOL) and plant-floor health monitoring
-done at Mercedes-Benz production plants.
+systems used in automotive manufacturing and diagnostics.
 
 Author: Anurag Thaliyil Veedu
 """
