@@ -1,6 +1,6 @@
 # ECU Health Monitor 🩺
 
-A Python-based real-time health monitoring system for automotive ECUs, simulating the kind of **End-of-Line (EOL) and plant-floor diagnostic monitoring**
+A Python-based real-time health monitoring system for automotive ECUs, simulating the kind of **End-of-Line (EOL) and plant-floor diagnostic monitoring** used at Automotive production facilities.
 
 Continuously polls multiple ECUs, evaluates signal health against configurable thresholds, and raises tiered alerts (WARNING / CRITICAL) with fault logging and trend tracking.
 
@@ -69,4 +69,4 @@ class DisplayECUNode(ECUNode):
 
 ## Background
 
-Modelled on ECU health monitoring work at **Mercedes-Benz R&D India**, where I conducted End-of-Line testing, managed on-site plant validations at Mercedes-Benz Germany, and resolved safety-critical issues (steering pull, trunk warning) through diagnostic monitoring and root cause analysis.
+Modelled on ECU health monitoring work at Automotive
