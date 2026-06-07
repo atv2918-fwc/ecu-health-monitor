@@ -1,6 +1,6 @@
 # ECU Health Monitor 🩺
 
-A Python-based real-time health monitoring system for automotive ECUs, simulating the kind of **End-of-Line (EOL) and plant-floor diagnostic monitoring** used at Mercedes-Benz production facilities.
+A Python-based real-time health monitoring system for automotive ECUs, simulating the kind of **End-of-Line (EOL) and plant-floor diagnostic monitoring**
 
 Continuously polls multiple ECUs, evaluates signal health against configurable thresholds, and raises tiered alerts (WARNING / CRITICAL) with fault logging and trend tracking.
 
