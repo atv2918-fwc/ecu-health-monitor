@@ -203,7 +203,7 @@ class GatewayECUNode(ECUNode):
         return {
             "RoutingLoad":    random.gauss(75 if fault else 40, 5),
             "ActiveBuses":    2.0 if (fault and random.random() < 0.3) else 3.0,
-            "ErrorFrameRate": random.gauss(15 if fault else 1, 2),
+            "ErrorFrameRate": abs(random.gauss(15 if fault else 1, 2)),
             "CPULoad":        random.gauss(88 if fault else 45, 5),
         }
 

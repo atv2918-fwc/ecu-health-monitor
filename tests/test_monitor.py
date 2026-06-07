@@ -101,3 +101,243 @@ def test_ecu_recover_resets_state(eps):
     eps.recover()
     assert not eps._fault_active
     assert eps.state == ECUState.NORMAL
+
+def test_eps_fault_triggers_critical_alerts():
+    """
+    Simulates the Mercedes-Benz steering pull issue —
+    SteeringTorque stuck high, motor overworking, voltage dropping.
+    Expects CRITICAL alerts to fire.
+    """
+    monitor = ECUHealthMonitor(poll_interval_s=0.05)
+    eps = EPSECUNode("EPS_ECU", node_id=0x18)
+
+    # Inject steering pull fault
+    def steering_pull_fault():
+        return {
+            "MotorTemp":      64.0,
+            "SupplyVoltage":  8.0,    # critically low
+            "MotorCurrent":   101.0,   # critically high
+            "SteeringTorque": 55.0,   # above 50 Nm critical limit
+            "CommStatus":     1.0,
+        }
+    eps._read_signals = steering_pull_fault
+
+    alerts = []
+    monitor.add_ecu(eps)
+    monitor.on_alert(lambda r: alerts.append(r))
+    monitor.run(duration_s=0.3)
+
+    critical = [a for a in alerts if a.level == AlertLevel.CRITICAL]
+    assert len(critical) >= 3, "Expected CRITICAL alerts for SteeringTorque, MotorCurrent, SupplyVoltage"
+
+    signal_names = [a.signal_name for a in critical]
+    assert "SteeringTorque" in signal_names
+    assert "MotorCurrent"   in signal_names
+    assert "SupplyVoltage"  in signal_names
+    print(f"\n  ✔  Steering pull fault detected — {len(critical)} critical alerts fired")
+
+
+# ─── Fault Scenario Tests ─────────────────────────────────────────────────────
+
+def test_eps_fault_triggers_critical_alerts():
+    """
+    Simulates the Mercedes-Benz steering pull issue —
+    SteeringTorque stuck high, motor overworking, voltage dropping.
+    CRITICAL: SteeringTorque, MotorCurrent
+    WARNING:  SupplyVoltage
+    """
+    monitor = ECUHealthMonitor(poll_interval_s=0.05)
+    eps = EPSECUNode("EPS_ECU", node_id=0x18)
+
+    def steering_pull_fault():
+        return {
+            "MotorTemp":      64.0,
+            "SupplyVoltage":  10.2,   # WARNING zone (between 9.0 and 11.5)
+            "MotorCurrent":   101.0,  # CRITICAL (above 100)
+            "SteeringTorque": 55.0,   # CRITICAL (above 50)
+            "CommStatus":     1.0,
+        }
+    eps._read_signals = steering_pull_fault
+
+    alerts = []
+    monitor.add_ecu(eps)
+    monitor.on_alert(lambda r: alerts.append(r))
+    monitor.run(duration_s=0.3)
+
+    # CRITICAL checks
+    critical = [a for a in alerts if a.level == AlertLevel.CRITICAL]
+    signal_names_crit = [a.signal_name for a in critical]
+    assert "SteeringTorque" in signal_names_crit
+    assert "MotorCurrent"   in signal_names_crit
+
+    # WARNING checks
+    warnings = [a for a in alerts if a.level == AlertLevel.WARNING]
+    signal_names_warn = [a.signal_name for a in warnings]
+    assert "SupplyVoltage" in signal_names_warn
+
+    print(f"\n  ✔  Steering pull fault detected")
+    print(f"     CRITICAL : {set(signal_names_crit)}")
+    print(f"     WARNING  : {set(signal_names_warn)}")
+
+def test_bcm_trunk_warning_fault():
+    """
+    Simulates the Mercedes-Benz trunk sound warning issue —
+    trunk sensor stuck open, spurious sound warning, CAN bus errors.
+    Expects CRITICAL alerts on all 3 signals.
+    """
+    monitor = ECUHealthMonitor(poll_interval_s=0.05)
+    bcm = BCMECUNode("BCM_ECU", node_id=0x40)
+
+    # Inject trunk fault
+    def trunk_fault():
+        return {
+            "BatteryVoltage":   13.2,
+            "TrunkSensorState": 2.0,   # stuck open — above critical max of 2
+            "WarningSoundReq":  4.0,   # spurious warning firing
+            "LightingLoad":     9.0,
+            "CANBusErrors":     22.0,  # above critical max of 20
+        }
+    bcm._read_signals = trunk_fault
+
+    alerts = []
+    monitor.add_ecu(bcm)
+    monitor.on_alert(lambda r: alerts.append(r))
+    monitor.run(duration_s=0.3)
+
+    critical = [a for a in alerts if a.level == AlertLevel.CRITICAL]
+    signal_names = [a.signal_name for a in critical]
+
+    assert "WarningSoundReq" in signal_names
+    assert "CANBusErrors"    in signal_names
+    print(f"\n  ✔  Trunk warning fault detected — {len(critical)} critical alerts fired")
+
+
+def test_gateway_overload_fault():
+    """
+    Simulates Gateway ECU overload —
+    CPU maxed out, routing overwhelmed, error frames spiking.
+    """
+    monitor = ECUHealthMonitor(poll_interval_s=0.05)
+    gw = GatewayECUNode("GW_ECU", node_id=0x60)
+
+    # Inject gateway overload
+    def gateway_overload():
+        return {
+            "RoutingLoad":    92.0,   # above critical 90%
+            "ActiveBuses":    3.0,
+            "ErrorFrameRate": 25.0,   # above critical 20/s
+            "CPULoad":        97.0,   # above critical 95%
+        }
+    gw._read_signals = gateway_overload
+
+    alerts = []
+    monitor.add_ecu(gw)
+    monitor.on_alert(lambda r: alerts.append(r))
+    monitor.run(duration_s=0.3)
+
+    critical = [a for a in alerts if a.level == AlertLevel.CRITICAL]
+    signal_names = [a.signal_name for a in critical]
+
+    assert "CPULoad"        in signal_names
+    assert "RoutingLoad"    in signal_names
+    assert "ErrorFrameRate" in signal_names
+    print(f"\n  ✔  Gateway overload detected — {len(critical)} critical alerts fired")
+
+
+def test_normal_operation_no_critical_alerts():
+    """
+    Verifies all ECUs run clean with no faults —
+    no CRITICAL alerts should fire under normal conditions.
+    """
+    monitor = ECUHealthMonitor(poll_interval_s=0.05)
+
+    eps = EPSECUNode("EPS_ECU", node_id=0x18)
+    bcm = BCMECUNode("BCM_ECU", node_id=0x40)
+    gw  = GatewayECUNode("GW_ECU", node_id=0x60)
+
+    # Force all ECUs into normal state — no fault injection
+    def normal_eps():
+        return {
+            "MotorTemp":      62.0,
+            "SupplyVoltage":  13.5,
+            "MotorCurrent":   45.0,
+            "SteeringTorque":  2.0,
+            "CommStatus":      1.0,
+        }
+    def normal_bcm():
+        return {
+            "BatteryVoltage":   13.2,
+            "TrunkSensorState": 0.0,
+            "WarningSoundReq":  0.0,
+            "LightingLoad":     9.0,
+            "CANBusErrors":     2.0,
+        }
+    def normal_gw():
+        return {
+            "RoutingLoad":    40.0,
+            "ActiveBuses":     3.0,
+            "ErrorFrameRate":  1.0,
+            "CPULoad":        45.0,
+        }
+
+    eps._read_signals = normal_eps
+    bcm._read_signals = normal_bcm
+    gw._read_signals  = normal_gw
+
+    alerts = []
+    monitor.add_ecu(eps)
+    monitor.add_ecu(bcm)
+    monitor.add_ecu(gw)
+    monitor.on_alert(lambda r: alerts.append(r))
+    monitor.run(duration_s=0.3)
+
+    critical = [a for a in alerts if a.level == AlertLevel.CRITICAL]
+    assert len(critical) == 0, f"Expected no critical alerts, got {len(critical)}"
+    print(f"\n  ✔  Normal operation confirmed — 0 critical alerts")
+
+
+def test_fault_then_recovery():
+    monitor = ECUHealthMonitor(poll_interval_s=0.05)
+    eps = EPSECUNode("EPS_ECU", node_id=0x18)
+
+    # Force fault AND override signals to guarantee critical values
+    eps._fault_active = True
+    def forced_fault():
+        return {
+            "MotorTemp":      125.0,  # above critical 120
+            "SupplyVoltage":  8.0,    # below critical 9
+            "MotorCurrent":   101.0,  # above critical 100
+            "SteeringTorque": 2.0,
+            "CommStatus":     1.0,
+        }
+    eps._read_signals = forced_fault
+
+    alerts_before = []
+    monitor.add_ecu(eps)
+    monitor.on_alert(lambda r: alerts_before.append(r))
+    monitor.run(duration_s=0.3)
+
+    # Recover and replace with normal signals
+    eps.recover()
+    def normal_signals():
+        return {
+            "MotorTemp":      62.0,
+            "SupplyVoltage":  13.5,
+            "MotorCurrent":   45.0,
+            "SteeringTorque":  2.0,
+            "CommStatus":      1.0,
+        }
+    eps._read_signals = normal_signals
+
+    alerts_after = []
+    monitor2 = ECUHealthMonitor(poll_interval_s=0.05)
+    monitor2.add_ecu(eps)
+    monitor2.on_alert(lambda r: alerts_after.append(r))
+    monitor2.run(duration_s=0.3)
+
+    crit_before = len([a for a in alerts_before if a.level == AlertLevel.CRITICAL])
+    crit_after  = len([a for a in alerts_after  if a.level == AlertLevel.CRITICAL])
+
+    assert crit_before > 0, "Expected critical alerts during fault"
+    assert crit_after == 0, "Expected zero critical alerts after recovery"
+    print(f"\n  ✔  Recovery confirmed — faults before={crit_before}, after={crit_after}")
